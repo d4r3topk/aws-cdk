@@ -752,9 +752,16 @@ export class Stream extends StreamBase {
       physicalName: props.streamName,
     });
 
-    const shardCount = props.shardCount || 1;
-
+    let shardCount: number|undefined = props.shardCount;
     const streamMode = props.streamMode;
+
+    if (streamMode == StreamMode.ON_DEMAND) {
+      if (shardCount !== undefined) {
+        throw new Error(`shardCount is not expected when streamMode=${StreamMode.ON_DEMAND}`);
+      }
+    } else {
+      shardCount = props.shardCount || 1;
+    }
 
     const retentionPeriodHours = props.retentionPeriod?.toHours() ?? 24;
     if (!Token.isUnresolved(retentionPeriodHours)) {

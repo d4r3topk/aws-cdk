@@ -374,11 +374,78 @@ describe('Kinesis data streams', () => {
     });
   }),
 
-  test.each([StreamMode.ON_DEMAND, StreamMode.PROVISIONED])('uses explicit capacity mode %s', (mode: StreamMode) => {
+  test(`throws error if shardCount present with capacity mode ${StreamMode.ON_DEMAND}`, () => {
+    const stack = new Stack();
+
+    expect(() => {
+      new Stream(stack, 'MyStream', {
+        streamMode: StreamMode.ON_DEMAND,
+        shardCount: 1,
+      });
+    }).toThrow(`shardCount is not expected when streamMode=${StreamMode.ON_DEMAND}`);
+  });
+
+  test(`uses explicit capacity mode ${StreamMode.ON_DEMAND}`, () => {
     const stack = new Stack();
 
     new Stream(stack, 'MyStream', {
-      streamMode: mode,
+      streamMode: StreamMode.ON_DEMAND,
+    });
+
+    expect(stack).toMatchTemplate({
+      Resources: {
+        MyStream5C050E93: {
+          Type: 'AWS::Kinesis::Stream',
+          Properties: {
+            RetentionPeriodHours: 24,
+            StreamModeDetails: {
+              StreamMode: StreamMode.ON_DEMAND,
+            },
+            StreamEncryption: {
+              'Fn::If': [
+                'AwsCdkKinesisEncryptedStreamsUnsupportedRegions',
+                {
+                  Ref: 'AWS::NoValue',
+                },
+                {
+                  EncryptionType: 'KMS',
+                  KeyId: 'alias/aws/kinesis',
+                },
+              ],
+            },
+          },
+        },
+      },
+      Conditions: {
+        AwsCdkKinesisEncryptedStreamsUnsupportedRegions: {
+          'Fn::Or': [
+            {
+              'Fn::Equals': [
+                {
+                  Ref: 'AWS::Region',
+                },
+                'cn-north-1',
+              ],
+            },
+            {
+              'Fn::Equals': [
+                {
+                  Ref: 'AWS::Region',
+                },
+                'cn-northwest-1',
+              ],
+            },
+          ],
+        },
+      },
+    });
+  });
+
+  test(`uses explicit capacity mode ${StreamMode.PROVISIONED}`, () => {
+    const stack = new Stack();
+
+    new Stream(stack, 'MyStream', {
+      streamMode: StreamMode.PROVISIONED,
     });
 
     expect(stack).toMatchTemplate({
@@ -389,7 +456,7 @@ describe('Kinesis data streams', () => {
             ShardCount: 1,
             RetentionPeriodHours: 24,
             StreamModeDetails: {
-              StreamMode: StreamMode[mode],
+              StreamMode: StreamMode.PROVISIONED,
             },
             StreamEncryption: {
               'Fn::If': [
